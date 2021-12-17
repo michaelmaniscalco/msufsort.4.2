@@ -1,5 +1,7 @@
 # msufsort.4.2
 temp holding place for next round of msufsort
+Don't hold me accountable for any crud that you might find in this branch - its a scratch pad for experimental ideas
+that will EVENTUALLY be the next gen MSufsort
 
 this is a work in progress and is far from complete.
 
