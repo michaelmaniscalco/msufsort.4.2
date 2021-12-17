@@ -49,14 +49,13 @@ namespace maniscalco
 
         compare_state   compareState_{compare_state::equal};
 
-        std::uint32_t   currentSuffixLength_{0};
+        std::uint32_t   currentSuffixLength_{2};
 
     }; // struct suffix_state
     #pragma pack(pop)
     
 } // namespace maniscalco
 
-#include <iostream>
 
 //=============================================================================
 inline void maniscalco::suffix_state::update
@@ -88,7 +87,7 @@ inline void maniscalco::suffix_state::update
         {        
             state_ <<= 9;
             state_ |= static_cast<std::uint8_t>(next);
-            if ((((state_ >> 9) - state_) & state_mask) == state_bstar)            
+            if ((((state_ >> 9) - state_) & state_mask) == state_bstar)     
             {
                 parentSuffixCurrent =  parentSuffixBegin;
                 compareState_ = compare_state::equal;
@@ -96,7 +95,7 @@ inline void maniscalco::suffix_state::update
                 if (*parentSuffixCurrent != firstCharInSuffix)
                     compareState_ = (firstCharInSuffix < *parentSuffixCurrent) ? compare_state::less : compare_state::greater;
 
-                auto end = (parentSuffixCurrent++) + currentSuffixLength_ + 1;
+                auto end = (parentSuffixCurrent++) + currentSuffixLength_ - 1;
                 while ((compareState_ == compare_state::equal) && (parentSuffixCurrent < end))
                 {
                     if (*parentSuffixCurrent != prev)
@@ -110,14 +109,14 @@ inline void maniscalco::suffix_state::update
                     
                 if (compareState_ == compare_state::less)
                 {
-                    comparedCharacterCount_ = ((currentSuffixLength_ + 2) + (inputEnd - inputCurrent)); // done
+                    comparedCharacterCount_ = (currentSuffixLength_ + (inputEnd - inputCurrent)); // done
                     return;
                 }
                 state_ |= (0xffull << 18);
                 comparedCharacterCount_ = (parentSuffixCurrent -  parentSuffixBegin);
             }
             prev = next;
-            currentSuffixLength_ = 0;
+            currentSuffixLength_ = 2;
         }
         ++currentSuffixLength_;
         ++comparedCharacterCount_;

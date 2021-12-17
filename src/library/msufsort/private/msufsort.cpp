@@ -14,7 +14,6 @@
 #include <chrono>
 #include <algorithm>
 #include <mutex>
-
 #include <span>
 
 #define VERBOSE
@@ -22,7 +21,7 @@
 
 #define USE_PREFETCH
 
-static auto prefetch_offset = 24;
+static auto constexpr prefetch_offset = 24;
 
 #ifdef USE_PREFETCH
     #define PREFETCH_READ(addr, offset)  __builtin_prefetch((char *)addr + ((sizeof(addr[0]) * offset)), 1, 0)
@@ -147,7 +146,6 @@ void maniscalco::msufsort<T>::suffix_array
         // single threaded multikey quicksort
         std::vector<stack_frame> stack;
         stack.reserve((1 << 10) * 16);
-       // std::vector<tandem_repeat_info> tandemRepeatStack;
         tandemRepeatStack_.reserve(1024);
         for (auto i = 0x20000; i < 0x30000; ++i)
         {
@@ -156,7 +154,6 @@ void maniscalco::msufsort<T>::suffix_array
                 multikey_quicksort(source, {suffixArray.data() + currentIndex, size}, 2, stack, tandemRepeatStack_);
             currentIndex += size;
         }
-    //    complete_tandem_repeats(source, tandemRepeatStack);
     }
     else
     {
@@ -172,20 +169,30 @@ void maniscalco::msufsort<T>::suffix_array
 
         std::sort(partitions.begin(), partitions.end(), [](auto const & a, auto const & b){return (a.size() < b.size());});
         std::atomic<std::int32_t> partitionCount = partitions.size();
-        auto multikeyQuicksortAllPartitionsTask = [&]()
-                {
-                    std::vector<stack_frame> stack;
-                    stack.reserve((1 << 10) * 16);
-                    std::int32_t partitionIndex = --partitionCount;
-                    while (partitionIndex >= 0)
-                    {
-                        multikey_quicksort(source, partitions[partitionIndex], 2, stack,  tandemRepeatStack_);
-                        partitionIndex = --partitionCount;
-                    }
-                };
+        std::vector<std::vector<tandem_repeat_info>> localTandemRepeatStack;
+        localTandemRepeatStack.resize(workContracts_.size());
+
         for (auto && [index, workContract] :  ranges::views::enumerate(workContracts_))
+        {
+            auto multikeyQuicksortAllPartitionsTask = [&, index]
+                    (
+                    ) mutable
+                    {
+                        std::vector<stack_frame> stack;
+                        stack.reserve((1 << 10) * 16);
+                        std::int32_t partitionIndex = --partitionCount;
+                        while (partitionIndex >= 0)
+                        {
+                            multikey_quicksort(source, partitions[partitionIndex], 2, stack, localTandemRepeatStack[index]);
+                            partitionIndex = --partitionCount;
+                        }
+                    };
             start_async_task(index, multikeyQuicksortAllPartitionsTask);
+        }
         wait_for_all_async_tasks();
+        for (auto const & stack : localTandemRepeatStack)
+            if (!stack.empty())
+                std::copy(stack.begin(), stack.end(), std::back_inserter(tandemRepeatStack_));
     }
 
     #ifdef VERBOSE
@@ -328,7 +335,7 @@ void maniscalco::msufsort<T>::count_suffix_types
     while (true)
     {
         auto k = ((state & 0x03) << 16) | endian_swap<host_order_type, big_endian_type>(*(std::uint16_t const *)current);
-        __builtin_prefetch(counter.data() + k, 1, 1);
+        PREFETCH_WRITE(counter.data(), k);
         ++counter[prev0];
         prev0 = prev1;
         prev1 = prev2;
@@ -487,7 +494,7 @@ void maniscalco::msufsort<T>::initial_radix_sort
         if ((state & 0x03) == 0x02)
         {
             auto currentValue = 0x20000ull + endian_swap<host_order_type, big_endian_type>(*(std::uint16_t const *)current);
-            __builtin_prefetch(counter.data() + currentValue, 1, 1);
+            PREFETCH_WRITE(counter.data(), currentValue);
             if (prev != 0)
                 suffixArray[counter[prev]++] = prevSuffixIndex;
             prev = currentValue;
@@ -501,22 +508,6 @@ void maniscalco::msufsort<T>::initial_radix_sort
     }
     if (prev != 0)
         suffixArray[counter[prev]++] = prevSuffixIndex;
-/*
-    while (true)
-    {
-        if ((state & 0x03) == 0x02)
-        {
-            auto currentValue = endian_swap<host_order_type, big_endian_type>(*(std::uint16_t const *)current);
-            auto n = counter[0x20000 | currentValue]++;
-            suffixArray[n] = suffixIndex;
-        }
-        if (--current < range.data())
-            break;
-        --suffixIndex;
-        state <<= ((current[0] != current[1]) | ((state & 0x01) == 0));
-        state |= (current[0] > current[1]);        
-    }
-    */
 }
 
 
@@ -619,7 +610,7 @@ inline void maniscalco::msufsort<T>::multikey_insertion_sort
     }    
     
     auto partitionBegin = range.data();
-    if ((true) && (currentMatchLength >= minMatchLengthForTandemRepeat))
+    if (currentMatchLength >= minMatchLengthForTandemRepeat)
     {
         if (currentMatchLength == starting_min_match_length_for_tandem_repeats)
             startingPattern = get_value(source.data(), *partitionBegin);
@@ -740,8 +731,6 @@ inline bool maniscalco::msufsort<T>::has_potential_tandem_repeats
     std::array<suffix_value, 2> endingPattern
 ) const
 {
-    if (!true)//tandemRepeatSortEnabled_)
-       return false;
     std::int8_t const * end = (std::int8_t const *)endingPattern.data();
     std::int8_t const * begin = end + sizeof(suffix_value);
     while (begin > end)
@@ -771,7 +760,7 @@ std::pair<std::uint32_t, std::uint32_t> maniscalco::msufsort<T>::partition_tande
     auto partitionSize = range.size();
     std::sort(partitionBegin, partitionEnd, [](std::int32_t a, std::int32_t b) -> bool{return (a < b);});
     std::int32_t tandemRepeatLength = 0;
-    auto const halfCurrentMatchLength = currentMatchLength;//(currentMatchLength >> 1);
+    auto const halfCurrentMatchLength = (currentMatchLength >> 1);
     // determine if there are tandem repeats and, if so, what the tandem repeat length is.
     auto previousSuffixIndex = partitionBegin[0];
     for (auto cur = partitionBegin + 1; ((tandemRepeatLength == 0) && (cur < partitionEnd)); ++cur)
@@ -780,17 +769,13 @@ std::pair<std::uint32_t, std::uint32_t> maniscalco::msufsort<T>::partition_tande
         auto distance = currentSuffixIndex - previousSuffixIndex;
         if (distance < minDistance)
             minDistance = distance;
-        if ((previousSuffixIndex + halfCurrentMatchLength) >= currentSuffixIndex)
+        if ((tandemRepeatLength == 0) && ((previousSuffixIndex + halfCurrentMatchLength) >= currentSuffixIndex))
             tandemRepeatLength = (currentSuffixIndex - previousSuffixIndex);
         previousSuffixIndex = currentSuffixIndex;
     }
 
     if (tandemRepeatLength == 0)
-    {
-    //    static int nnn = 0;
-    //    std::cout << "tandem sort count = " << ++nnn << ", cur match len = " << currentMatchLength << ", minDistance = " << minDistance << std::endl;
-        return {0, minDistance }; // no tandem repeats were found
-    }
+        return {0, minDistance * 2}; // no tandem repeats were found
 
     // tandem repeats detected.
     auto terminatorsEnd = partitionEnd - 1;
@@ -803,17 +788,10 @@ std::pair<std::uint32_t, std::uint32_t> maniscalco::msufsort<T>::partition_tande
 	    previousSuffixIndex = currentSuffixIndex;
     }
     auto numTerminators = (std::distance(partitionBegin, terminatorsEnd) + 1);
-/*
-    static int aaa = 0;
-    static int bbb = 0;
-    aaa += numTerminators;
-    bbb += (partitionEnd - partitionBegin);
-    std::cout << aaa << "/" << bbb << std::endl;
-    */
     std::reverse(partitionBegin, partitionEnd);
     tandemRepeatStack.push_back(tandem_repeat_info({partitionBegin, std::distance(partitionBegin, partitionEnd)}, 
             (std::int32_t)numTerminators, tandemRepeatLength));
-    return {(partitionSize - numTerminators), minDistance};
+    return {(partitionSize - numTerminators), minDistance * 2};
 }
 
 
@@ -850,7 +828,6 @@ inline void maniscalco::msufsort<T>::complete_tandem_repeat
     auto * terminatorsBegin = partitionEnd - numTerminators;
 
     complete_induced_sort({terminatorsBegin, terminatorsBegin + numTerminators});
-
     // mark isa for each non terminator as length of tandem repeat
     for (auto cur = partitionBegin; cur < terminatorsBegin; ++cur)
         write_isa(*cur, tandemRepeatFlag);
@@ -1113,7 +1090,7 @@ void maniscalco::msufsort<T>::complete_induced_sort
     std::sort(tandemRepeatStack_.begin(), tandemRepeatStack_.end(), 
             [](auto const & a, auto const & b)
             {
-                if (a.range_.end() != b.range_.begin())
+                if (a.range_.end() != b.range_.end())
                     return (a.range_.end() < b.range_.end());
                 return (a.range_.begin() < b.range_.begin());
             });
@@ -1163,7 +1140,7 @@ void maniscalco::msufsort<T>::complete_induced_sort
             ++current;
             while ((current < end) &&  (!is_induced_sort(*current)))
             {
-                __builtin_prefetch(isa_ + (*current / 2), 1, 0);
+                PREFETCH_READ(isa_, current[0] >> 1);
                 *current += offset;
                 ++current;
             }

@@ -85,7 +85,6 @@ namespace maniscalco
             std::vector<tandem_repeat_info> &
         );
 
-
         bool has_potential_tandem_repeats
         (
             suffix_value,
@@ -267,7 +266,7 @@ namespace maniscalco
         suffix_index *                                  sa_;
 
         suffix_index *                                  isa_;
-        
+
     }; // class msufsort
 
 } // namespace maniscalco
