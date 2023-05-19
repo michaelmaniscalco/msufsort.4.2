@@ -170,24 +170,24 @@ int main
     try
     {
         using namespace maniscalco;
-        thread_count threadCount{1};
+        std::uint32_t threadCount{1};
         if (argc > 2)
         {
             try
             {
-                threadCount = thread_count(std::atoi(argv[2]));
+                threadCount = std::uint32_t(std::atoi(argv[2]));
             }
             catch (...)
             {
                 std::cerr << "invalid thread count: " << argv[2] << "\n";
             }
         }
-        if (threadCount.get() > std::thread::hardware_concurrency())
+        if (threadCount > std::thread::hardware_concurrency())
         {
-            threadCount = thread_count(std::thread::hardware_concurrency());
-            std::cerr << "restricting thread count to max concurrency of " << threadCount.get() << '\n';
+            threadCount = std::uint32_t(std::thread::hardware_concurrency());
+            std::cerr << "restricting thread count to max concurrency of " << threadCount << '\n';
         }
-        std::cout << "concurrency = " << threadCount.get() << "\n";
+        std::cout << "concurrency = " << threadCount << "\n";
         auto input = load_file(argv[1]);
         make_suffix_array<decltype(input), std::uint32_t>(input, threadCount);
     }

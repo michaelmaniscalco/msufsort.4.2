@@ -1,7 +1,7 @@
 #pragma once
 
 #include <include/convertible_to_span_of_bytes.h>
-#include <library/system/threading/thread_id.h>
+#include <library/system.h>
 
 #include <vector>
 #include <span>
@@ -17,7 +17,7 @@ namespace maniscalco
     (
         std::span<std::byte const>,
         std::span<S>,
-        thread_count
+        std::uint32_t
     );
 
 
@@ -27,7 +27,7 @@ namespace maniscalco
     (
         T source,
         std::span<S> suffixArray,
-        thread_count threadCount
+        std::uint32_t threadCount
     ) requires convertible_to_span_of_bytes<T>
     {
         make_suffix_array(std::as_bytes(std::span(source.begin(), source.size())), suffixArray, threadCount);
@@ -39,7 +39,7 @@ namespace maniscalco
     std::vector<S> make_suffix_array
     (
         T source,
-        thread_count threadCount
+        std::uint32_t threadCount
     ) requires convertible_to_span_of_bytes<T>
     {
         std::vector<S> suffixArray(source.size() + 1);

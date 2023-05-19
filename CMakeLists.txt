@@ -23,84 +23,16 @@ else()
 endif()
 
 
-option(MSUFSORT_BUILD_DEMO "Build the CLI demo" OFF)
+option(MSUFSORT_BUILD_DEMO "Build the CLI demo" ON)
 
 ###############################################################################
 # include dependency repos 
 ###############################################################################
+include("./scripts/fetch_dependencies.cmake")
 
-include(FetchContent)
-
-# work-contract
-FetchContent_Declare(
-    work_contract
-    GIT_REPOSITORY https://github.com/michaelmaniscalco/work_contract.git
-    GIT_TAG master
-    SOURCE_DIR        "${CMAKE_BINARY_DIR}/work_contract-src"
-    BINARY_DIR        "${CMAKE_BINARY_DIR}/work_contract-build"
-    INSTALL_DIR       "${CMAKE_BINARY_DIR}"
-    INSTALL_COMMAND   ""
-    )
-FetchContent_MakeAvailable(work_contract)
-FetchContent_GetProperties(work_contract)
-
-
-# work-contract
-FetchContent_Declare(
-    common
-    GIT_REPOSITORY https://github.com/michaelmaniscalco/common.git
-    GIT_TAG master
-    SOURCE_DIR        "${CMAKE_BINARY_DIR}/common-src"
-    BINARY_DIR        "${CMAKE_BINARY_DIR}/common-build"
-    INSTALL_DIR       "${CMAKE_BINARY_DIR}"
-    INSTALL_COMMAND   ""
-    )
-FetchContent_MakeAvailable(common)
-FetchContent_GetProperties(common)
-
-# ranges
-FetchContent_Declare(
-    range_v3
-    GIT_REPOSITORY https://github.com/ericniebler/range-v3.git
-    GIT_TAG master
-    SOURCE_DIR        "${CMAKE_BINARY_DIR}/range_v3-src"
-    BINARY_DIR        "${CMAKE_BINARY_DIR}/range_v3-build"
-    INSTALL_DIR       "${CMAKE_BINARY_DIR}"
-    INSTALL_COMMAND   ""
-)
-FetchContent_MakeAvailable(range_v3)
-FetchContent_GetProperties(range_v3)
-set(_range_v3_include_dir "${CMAKE_BINARY_DIR}/range_v3-src/include/")
-
-
-# fmt
-FetchContent_Declare(
-    fmt
-    GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-    GIT_TAG master
-    SOURCE_DIR        "${CMAKE_BINARY_DIR}/fmt-src"
-    BINARY_DIR        "${CMAKE_BINARY_DIR}/fmt-build"
-    INSTALL_DIR       "${CMAKE_BINARY_DIR}"
-    INSTALL_COMMAND   ""
-)
-FetchContent_MakeAvailable(fmt)
-FetchContent_GetProperties(fmt)
-set(_fmt_include_dir "${CMAKE_BINARY_DIR}/fmt-src/include/")
-
-
-# type_safe
-FetchContent_Declare(
-    type_safe
-    GIT_REPOSITORY https://github.com/foonathan/type_safe.git
-    GIT_TAG main
-    SOURCE_DIR        "${CMAKE_BINARY_DIR}/type_safe-src"
-    BINARY_DIR        "${CMAKE_BINARY_DIR}/type_safe-build"
-    INSTALL_DIR       "${CMAKE_BINARY_DIR}"
-    INSTALL_COMMAND   ""
-)
-FetchContent_MakeAvailable(type_safe)
-FetchContent_GetProperties(type_safe)
-set(_type_safe_include_dir "${CMAKE_BINARY_DIR}/type_safe-src/include/")
+fetch_dependency("https://github.com/michaelmaniscalco/system.git;master")
+fetch_dependency("https://github.com/michaelmaniscalco/common.git;master")
+fetch_dependency("https://github.com/fmtlib/fmt.git;master")
 
 
 add_subdirectory(src)

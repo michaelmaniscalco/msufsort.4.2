@@ -64,7 +64,7 @@ inline void maniscalco::suffix_state::update
     symbol const * parentSuffixBegin
 )
 {
-    input = endian_swap<host_order_type, big_endian_type>(input);
+    input = endian_swap<std::endian::native, std::endian::big>(input);
     auto inputCurrent = (std::byte const *)&input;
     auto inputEnd = inputCurrent + sizeof(suffix_value);
     auto parentSuffixCurrent =  parentSuffixBegin + comparedCharacterCount_;

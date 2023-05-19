@@ -26,7 +26,7 @@ namespace maniscalco
 
         struct configuration
         {
-            thread_count threadCount_;
+            std::uint32_t threadCount_;
         };
 
         msufsort
@@ -135,7 +135,7 @@ namespace maniscalco
             std::span<symbol const>,
             std::span<suffix_index>,
             std::array<std::uint32_t, 0x40000> &,
-            thread_count
+            std::uint32_t
         );
 
         void initial_radix_sort
@@ -247,9 +247,9 @@ namespace maniscalco
             std::uint32_t
         );
 
-        thread_count                                    threadCount_;
+        std::uint32_t                                    threadCount_;
 
-        std::shared_ptr<system::work_contract_group>    workContractGroup_;
+        system::work_contract_group                     workContractGroup_;
 
         std::vector<system::work_contract>              workContracts_;
 

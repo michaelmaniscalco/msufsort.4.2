@@ -9,7 +9,7 @@ void maniscalco::make_suffix_array
 (
     std::span<std::byte const> source,
     std::span<S> suffixArray,
-    thread_count threadCount
+    std::uint32_t threadCount
 )
 {
     msufsort<S>({.threadCount_ = threadCount}).suffix_array(source, suffixArray);
@@ -24,14 +24,14 @@ namespace maniscalco
     (
         std::span<std::byte const>,
         std::span<std::uint64_t>,
-        thread_count
+        std::uint32_t
     );
     
     template void make_suffix_array<std::uint32_t>
     (
         std::span<std::byte const>,
         std::span<std::uint32_t>,
-        thread_count
+        std::uint32_t
     );
 }
 

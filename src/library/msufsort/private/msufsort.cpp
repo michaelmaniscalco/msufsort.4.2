@@ -55,24 +55,17 @@ maniscalco::msufsort<T>::msufsort
     configuration const & config
 ):    
     threadCount_(config.threadCount_),
-    workContractGroup_((threadCount_ > thread_count{1}) ? workContractGroup_->create({.capacity_ = threadCount_.get()}) : nullptr),
-    workContracts_((threadCount_ > thread_count{1}) ? workContractGroup_->get_capacity() : 0),
-    threadPool_(
-            {
-                .threadCount_ = (single_threaded()) ? 0 : threadCount_.get(),
-                .workerThreadFunction_ = [workContractGroup = this->workContractGroup_]()
-                        {
-                            workContractGroup->service_contracts();
-                        }
-            })
+    workContractGroup_(1 << 16),
+    workContracts_(threadCount_),
+    threadPool_({})
 {
+    std::vector<system::thread_pool::thread_configuration> threads(config.threadCount_);
+    for (auto & thread : threads)
+        thread.function_ = [this](auto const & stopToken){while (!stopToken.stop_requested()) workContractGroup_.service_contracts();};
+    threadPool_ = system::thread_pool({threads});
+
     for (auto & workContract : workContracts_)
-    {
-        auto w = workContractGroup_->create_contract({.contractHandler_ = [](){}});
-        if (!w.has_value())
-            throw std::runtime_error("Failed to acquire work contract");
-        workContract = std::move(w.value());
-    }
+        workContract = workContractGroup_.create_contract(nullptr);
 }
 
 
@@ -95,16 +88,14 @@ void maniscalco::msufsort<T>::start_async_task
     std::function<void()> task
 )
 {
-    workContractGroup_->update_contract(workContracts_[contractIndex],
+    workContracts_[contractIndex].update(
+            [this, task = std::move(task)]()
             {
-                .contractHandler_ = [this, task = std::move(task)]()
+                task(); 
+                if (--this->activeWorkContractCount_ == 0)
                 {
-                    task(); 
-                    if (--this->activeWorkContractCount_ == 0)
-                    {
-                        std::unique_lock uniqueLock(this->mutex_);
-                        this->conditionVariable_.notify_one();
-                    }
+                    std::unique_lock uniqueLock(this->mutex_);
+                    this->conditionVariable_.notify_one();
                 }
             });
     ++activeWorkContractCount_;
@@ -272,7 +263,7 @@ void maniscalco::msufsort<T>::complete_isa
         }
         return;
     }
-    auto chunkSize = ((suffixArray.size() + threadCount_.get()) / threadCount_.get());
+    auto chunkSize = ((suffixArray.size() + threadCount_) / threadCount_);
     for (auto && [index, workContract] :  ranges::views::enumerate(workContracts_))
     {
         start_async_task(index, [begin, end, chunkSize, this]() mutable
@@ -298,7 +289,7 @@ bool maniscalco::msufsort<T>::single_threaded
 (
 ) const
 {
-    return (threadCount_ == thread_count{1});
+    return (threadCount_ == std::uint32_t{1});
 }
 
 
@@ -334,7 +325,7 @@ void maniscalco::msufsort<T>::count_suffix_types
 
     while (true)
     {
-        auto k = ((state & 0x03) << 16) | endian_swap<host_order_type, big_endian_type>(*(std::uint16_t const *)current);
+        auto k = ((state & 0x03) << 16) | endian_swap<std::endian::native, std::endian::big>(*(std::uint16_t const *)current);
         PREFETCH_WRITE(counter.data(), k);
         ++counter[prev0];
         prev0 = prev1;
@@ -382,7 +373,7 @@ void maniscalco::msufsort<T>::initial_radix_sort
     std::span<symbol const> source,
     std::span<suffix_index> suffixArray,
     std::array<std::uint32_t, 0x40000> & counters,
-    thread_count threadCount
+    std::uint32_t threadCount
 )
 {
     // count suffix types for each unique two symbol combination from source
@@ -390,7 +381,7 @@ void maniscalco::msufsort<T>::initial_radix_sort
     {
         // single threaded count
         count_suffix_types(source, source, counters);
-        auto counterIndex = (endian_swap<host_order_type, big_endian_type>(*(std::uint16_t const *)(source.data() + source.size() - 1)));
+        auto counterIndex = (endian_swap<std::endian::native, std::endian::big>(*(std::uint16_t const *)(source.data() + source.size() - 1)));
         ++counters[counterIndex];
 
         std::array<std::uint32_t, 4> c{0,0,0,0};
@@ -415,8 +406,8 @@ void maniscalco::msufsort<T>::initial_radix_sort
     else
     {
         // multi threaded count
-        auto chunkSize = (std::uint32_t)((source.size() + threadCount.get() - 1) / threadCount.get());
-        std::vector<std::array<std::uint32_t, 0x40000>> subCounters(threadCount.get());
+        auto chunkSize = (std::uint32_t)((source.size() + threadCount - 1) / threadCount);
+        std::vector<std::array<std::uint32_t, 0x40000>> subCounters(threadCount);
         for (auto && [index, subCounter] : ranges::views::enumerate(subCounters))
         {
             auto begin = source.begin() + (index * chunkSize);
@@ -424,7 +415,7 @@ void maniscalco::msufsort<T>::initial_radix_sort
             start_async_task(index, [&source, &subCounter, range = std::span(begin, size), this](){this->count_suffix_types(source, range, subCounter);});
         }
         wait_for_all_async_tasks();
-        auto counterIndex = endian_swap<host_order_type, big_endian_type>(*(std::uint16_t const *)(source.data() + source.size() - 1));
+        auto counterIndex = endian_swap<std::endian::native, std::endian::big>(*(std::uint16_t const *)(source.data() + source.size() - 1));
         ++subCounters.back()[counterIndex];
 
         for (auto i = 0x20000; i < 0x30000; ++i)
@@ -493,7 +484,7 @@ void maniscalco::msufsort<T>::initial_radix_sort
     {
         if ((state & 0x03) == 0x02)
         {
-            auto currentValue = 0x20000ull + endian_swap<host_order_type, big_endian_type>(*(std::uint16_t const *)current);
+            auto currentValue = 0x20000ull + endian_swap<std::endian::native, std::endian::big>(*(std::uint16_t const *)current);
             PREFETCH_WRITE(counter.data(), currentValue);
             if (prev != 0)
                 suffixArray[counter[prev]++] = prevSuffixIndex;
@@ -1349,7 +1340,7 @@ inline auto maniscalco::msufsort<T>::get_value
 {
     source += index;
     if (source <= getValueEnd_) [[likely]]
-        return endian_swap<host_order_type, big_endian_type>(*(suffix_value const *)(source));
+        return endian_swap<std::endian::native, std::endian::big>(*(suffix_value const *)(source));
     else [[unlikely]]
         return get_value_over(source, index);
 }
@@ -1364,7 +1355,7 @@ auto __attribute__ ((noinline)) maniscalco::msufsort<T>::get_value_over
 ) const -> suffix_value
 {
     auto over = std::distance(getValueEnd_, source);
-    return (over >= sizeof(suffix_value)) ? 0 : (endian_swap<host_order_type, big_endian_type>(*(suffix_value const *)(getValueEnd_)) << (over * 8));
+    return (over >= sizeof(suffix_value)) ? 0 : (endian_swap<std::endian::native, std::endian::big>(*(suffix_value const *)(getValueEnd_)) << (over * 8));
 }
 
 
