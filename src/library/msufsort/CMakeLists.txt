@@ -1,14 +1,3 @@
-find_library(LIBCXX_LIB c++)
-find_package(Threads)
-find_library(LIBCXXABI_LIB c++abi)
-
-
-link_libraries(
-    ${LIBCXX_LIB}
-    ${LIBCXXABI_LIB}
-)
-
-
 add_library(msufsort
     ./private/msufsort.cpp
     msufsort.cpp
@@ -17,8 +6,7 @@ add_library(msufsort
 
 target_link_libraries(msufsort 
     system
-    include
-    ${CMAKE_THREAD_LIBS_INIT})
+    include)
 
 
 target_include_directories(msufsort
