@@ -43,12 +43,12 @@ namespace maniscalco
     private:
 
         static std::int32_t constexpr starting_min_match_length_for_tandem_repeats = (2 + sizeof(suffix_value) + sizeof(suffix_value));
-        static auto constexpr min_match_length_before_induced_sort = 18;
+        static auto constexpr min_match_length_before_induced_sort = 26;//18;
         static auto constexpr induced_sort_threshold = (2 + (sizeof(suffix_value) * (min_match_length_before_induced_sort / sizeof(suffix_value))));
         static_assert(((induced_sort_threshold - 2) % sizeof(suffix_value)) == 0);
         static_assert(induced_sort_threshold >= (2 + sizeof(suffix_value)));
 
-        static auto constexpr insertion_sort_threshold = 16;
+        static auto constexpr insertion_sort_threshold = 64;
 
         static auto constexpr bits_per_suffix_index = (8 * sizeof(suffix_index));
         static suffix_index constexpr induced_sort_flag = (1ull << (bits_per_suffix_index - 1));
@@ -103,6 +103,12 @@ namespace maniscalco
             std::span<suffix_index>,
             std::int32_t,
             std::int32_t
+        );
+
+        std::tuple<suffix_index *, suffix_value, suffix_index *, suffix_value, suffix_index *, suffix_value> select_pivots
+        (
+            symbol const *,
+            std::span<suffix_index>
         );
 
         void start_async_task
@@ -247,7 +253,7 @@ namespace maniscalco
             std::uint32_t
         );
 
-        std::uint32_t                                    threadCount_;
+        std::uint32_t                                   threadCount_;
 
         system::work_contract_group                     workContractGroup_;
 

@@ -31,7 +31,7 @@ option(MSUFSORT_BUILD_DEMO "Build the CLI demo" ON)
 include("./scripts/fetch_dependencies.cmake")
 
 fetch_dependency("https://github.com/michaelmaniscalco/system.git;master")
-fetch_dependency("https://github.com/michaelmaniscalco/common.git;master")
+fetch_dependency("https://github.com/michaelmaniscalco/include.git;master")
 fetch_dependency("https://github.com/fmtlib/fmt.git;master")
 
 

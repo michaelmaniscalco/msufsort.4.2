@@ -74,12 +74,13 @@ inline void maniscalco::suffix_state::update
     {
         if ((compareState_ == compare_state::equal) && (*parentSuffixCurrent != *inputCurrent))
         {
-            compareState_ = (*inputCurrent < *parentSuffixCurrent) ? compare_state::less : compare_state::greater;
-            if (compareState_ == compare_state::less)
+            if (*inputCurrent < *parentSuffixCurrent)
             {
+                compareState_ = compare_state::less;
                 comparedCharacterCount_ += (inputEnd - inputCurrent); // done
                 return;
             }
+            compareState_ = compare_state::greater;
         }
 
         auto next = *(inputCurrent++);
@@ -104,7 +105,7 @@ inline void maniscalco::suffix_state::update
                 }
                 parentSuffixCurrent = end;
 
-                if ((*parentSuffixCurrent != next) && (compareState_ == compare_state::equal))
+                if ((compareState_ == compare_state::equal) && (*parentSuffixCurrent != next))
                     compareState_ = (next < *parentSuffixCurrent) ? compare_state::less : compare_state::greater;
                     
                 if (compareState_ == compare_state::less)

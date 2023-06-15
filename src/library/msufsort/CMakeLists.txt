@@ -17,7 +17,7 @@ add_library(msufsort
 
 target_link_libraries(msufsort 
     system
-    common
+    include
     ${CMAKE_THREAD_LIBS_INIT})
 
 

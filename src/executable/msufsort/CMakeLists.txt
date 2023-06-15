@@ -15,5 +15,5 @@ add_executable(msufsort_demo main.cpp)
 target_link_libraries(msufsort_demo 
     fmt::fmt
     ${CMAKE_THREAD_LIBS_INIT}
-    common 
+    include 
     msufsort)
